@@ -1,85 +1,85 @@
 ---
 name: ai-tell-check
-description: Use when doing ArtQA on game or app art (backgrounds, props, icons, characters, 3D models, UI, logos) for a commercial release, or when someone asks whether assets look AI-generated — "AI 티", "AI slop", "생성형 같아 보인다", "looks AI-made". Engine-agnostic (Unity, Unreal, Godot, Cocos/Axmol, web).
+description: Use when doing ArtQA on game or app art (backgrounds, props, icons, characters, 3D models, UI, logos) for a commercial release, or when someone asks whether assets look AI-generated — "AI slop", "looks AI-made", "AI 티", "AI感", "AIっぽい". Engine-agnostic (Unity, Unreal, Godot, Cocos/Axmol, web).
 ---
 
-# AI 티 판정 (ArtQA)
+# AI-tell check (ArtQA)
 
-**AI 티 = 유저가 "생성형 AI 그림이네"라고 의심하게 만드는 신호.** 그림만 보고 AI 여부를 확정하는 검증된 방법은 없다. 그래서 자산마다 **출처**와 **보이는 신호**를 근거로 판정한다. 판별 모델 점수는 판정 근거로 쓰지 않는다. 대부분 사진으로 학습해서 일러스트에서는 잘 틀린다.
+**An AI tell is anything that makes a player think "this was made by generative AI".** Pixels alone cannot prove that an image is AI-generated, so judge each asset on its **provenance** and its **visible signals**. Do not use AI-detector model scores as evidence: most are trained on photos and are unreliable on illustration.
 
-## 1. 대상 모으기 (엔진 무관)
+## 1. Collect the targets (any engine)
 
-두 가지를 다 본다. **원본 그림 파일**과 **실제 화면**(게임 해상도 그대로 캡처하거나, 배치 좌표대로 합성한 것)이다.
+Look at both: the **source image files** and the **real screen** (a capture at the game's actual resolution, or a composite built from the layout coordinates).
 
-| 엔진 | 원본 그림 위치 |
+| Engine | Where source images live |
 |---|---|
-| Unity | `Assets/**` 아래 png·psd·tga. 아틀라스는 원본 스프라이트로 본다 |
-| Unreal | `.uasset`은 바이너리다. 원본 아트 폴더를 찾거나 에디터에서 Export한다 |
-| Godot | `res://**` 아래 png. `.godot/imported`는 무시한다 |
-| Cocos·Axmol·기타 | `Resources/`·`Content/`·`assets/`. plist·atlas·FairyGUI·Spine 아틀라스는 낱장 원본을 찾는다 |
-| 3D | glb·fbx·obj와 그 텍스처 |
+| Unity | `Assets/**` png/psd/tga; look at source sprites, not packed atlases |
+| Unreal | `.uasset` is binary: find the source-art folder or export from the editor |
+| Godot | `res://**` png; ignore `.godot/imported` |
+| Cocos / Axmol / others | `Resources/`, `Content/`, `assets/`; for plist/atlas/FairyGUI/Spine atlases, find the individual source images |
+| 3D | glb/fbx/obj and their textures |
 
-## 2. 출처 확인 — 먼저, 빠짐없이
+## 2. Provenance — first, for every asset
 
-출처가 가장 강한 증거다. 깨끗해 보이는 자산도 생성 그림을 오려 냈거나 색만 바꾼 것일 수 있다. 측정 도구는 이 스킬 폴더의 `scripts/aitell.py`다. 의존성은 `scripts/requirements.txt`에 있다. 공용·conda 환경에 설치하지 말고 venv를 만들어 쓴다. 자체 점검은 `python scripts/aitell.py selftest`다.
+Provenance is the strongest evidence. A clean-looking asset can still be a crop or a recolor of a generated image. The measuring tool is `scripts/aitell.py` in this skill's folder; its dependencies are in `scripts/requirements.txt`. Install them into a venv, never into a shared or conda environment. Self-check: `python scripts/aitell.py selftest`.
 
-1. **메타데이터·문자열**: `aitell.py meta <파일...>`. ComfyUI·A1111 프롬프트 청크, 3D 생성기 흔적(tripo·meshy·rodin·hunyuan 등)을 찾는다.
-2. **생성 결과물과 대조**: `aitell.py match <자산> <후보...>`. 후보는 다음에서 찾는다.
-   - 저장소의 생성 스크립트(ComfyUI API 호출, `prompt`, 워크플로 json)와 그 출력 폴더
-   - ComfyUI `output/`, 다운로드 폴더의 `ComfyUI_*`·`exec-*` 파일
-   - **같은 자산의 git 이전 버전**: `git log -- <경로>` 다음 `git show <커밋>:<경로>`. 오려 낸 가구·소품은 이전 통짜 그림에서 나온다.
-   - 그래도 못 찾으면 사용자에게 생성 결과물 위치를 묻는다.
-3. **판독**:
-   - `corr ≥ 0.95`이면 같은 그림이다.
-   - 거기에 `same_px`까지 높으면 그대로 쓴 것이다.
-   - `corr`만 높고 `same_px`가 낮으면 색만 바꾼 것이다.
-   - 크롭 대조에서 `scale` 1.0 근처에 높은 값이 나오면 오려 낸 것이다.
+1. **Metadata and strings**: `aitell.py meta <files...>`. It finds ComfyUI/A1111 prompt chunks and 3D-generator markers (tripo, meshy, rodin, hunyuan, …).
+2. **Compare with generated outputs**: `aitell.py match <asset> <candidates...>`. Find candidates in:
+   - generation scripts in the repo (ComfyUI API calls, `prompt`, workflow JSON) and their output folders
+   - ComfyUI `output/`, and `ComfyUI_*` / `exec-*` files in the downloads folder
+   - **earlier git versions of the same asset**: `git log -- <path>`, then `git show <commit>:<path>`. Cut-out props usually come from an earlier single-piece image.
+   - if none are found, ask the user where generated outputs are kept.
+3. **Reading the numbers**:
+   - `corr ≥ 0.95` means it is the same picture.
+   - A high `same_px` as well means it was used as-is.
+   - A high `corr` with a low `same_px` means it was only recolored.
+   - In a crop search, a high value near `scale` 1.0 means it was cut out.
 
-출처는 `생성(근거)` / `생성 의심` / `코드로 그림` / `수작업` / `불명` 중 하나로 적는다.
+Record provenance as one of: `generated (evidence)` / `suspected generated` / `drawn by code` / `hand-made` / `unknown`.
 
-## 3. 보이는 신호
+## 3. Visible signals
 
-자산을 2~6배로 확대해서 보고, 게임 크기에서도 보이는지 따로 적는다.
+Inspect each asset at 2–6× zoom, and note separately whether each signal is also visible at game size.
 
-| 신호 | 확인 |
+| Signal | How to check |
 |---|---|
-| 원근·구조 불성립 | 소실점이 다르다, 옆면 방향이 틀렸다, 바닥 타원 비율이 자산마다 다르다, 기둥·벽이 끊긴다 |
-| 거울 구도·복제 | 장면·배경에서 `aitell.py sym [--bottom 0.35]` 값이 0.85 이상(원래 대칭인 물건은 세지 않음), 쌍둥이 소품, 칸마다 같은 배치 |
-| 의미 없는 채우기 | 흩뿌린 점·돌, 기능 없는 파이프·장식, 평평한 면의 잔 얼룩 |
-| 녹은 디테일 | 손가락·발·글자·무늬 경계가 녹았다, 체크무늬·격자가 휜다 |
-| 가짜 연출 | 보케, 빛 번짐·빛줄기, 글로우, 피사계 심도 |
-| 흔한 생성 공식 | 굵고 고른 외곽선 + 에어브러시 그라데이션 + 잔 얼룩, 모든 물체에 같은 광택 |
-| 화풍 충돌 | 한 화면에서 외곽선·칠 규칙이 자산마다 다르다(예: 스프라이트는 선+셀, 배경은 선 없는 페인팅) |
-| 팔레트 | `aitell.py color`로 보라~핑크 비율과 채도(C)를 잰다. 기준 그림체가 있으면 같은 지표로 비교한다 |
-| 업스케일 | 실제 해상도가 표시 크기보다 낮다(줄였다 키워도 거의 그대로) |
-| 누끼 흔적 | 흰 테·배경색 번짐(`color`의 `edge_rgb`), 남은 배경 조각, 투명 영역에 남은 색 |
-| 기성품 대용 | 이모지 아이콘, 템플릿 로고(글꼴 + 겹 스트로크 + 그라데이션), 공용 얼굴 부품·표정 프리셋 |
+| Broken perspective or structure | vanishing points disagree, side faces show on the wrong side, floor-ellipse ratios differ per asset, walls or pillars stop mid-air |
+| Mirror layout / duplication | in scenes and backgrounds, `aitell.py sym [--bottom 0.35]` ≥ 0.85 (skip objects that are symmetric by design); twin props; the same arrangement in every slot |
+| Meaningless filler | scattered dots and pebbles, pipes or ornaments with no function, fine blotches on flat areas |
+| Melted detail | fingers, paws, lettering, or pattern edges melting; checks or grids bending |
+| Fake effects | bokeh, bloom, light rays, glow, depth of field |
+| Stock generative recipe | thick uniform outline + airbrushed gradients + fine blotches; the same gloss on every object |
+| Style clash | outline/shading rules differ between assets on one screen (e.g. lined cel sprites over a lineless painted background) |
+| Palette | `aitell.py color` for purple–pink share and chroma (C); if there is a reference art style, compare it with the same metrics |
+| Upscaled | true resolution is lower than display size (barely changes when downscaled and scaled back up) |
+| Cut-out traces | white halos and background bleed (`edge_rgb` from `color`), leftover background bits, color left in transparent pixels |
+| Stand-ins | emoji icons, template logos (font + stacked strokes + gradient), shared face parts and expression presets |
 
-## 4. 판정 — 네 단계 중 하나만
+## 4. Verdict — exactly one of four
 
-- **강함**: 게임 크기에서 신호가 보인다. 출처가 `생성`이면 신호 1개, 그 밖이면 2개 이상.
-- **중간**: 확대해야 보이는 신호가 여럿이다. 또는 출처가 `생성`이고 신호가 확대해야 보인다.
-- **약함**: 출처는 `생성`인데 신호가 거의 안 보인다. 또는 확대 신호가 1개뿐이다.
-- **없음**: 출처가 `생성`이 아니고 신호도 없다.
+- **Strong**: a signal is visible at game size — one is enough if provenance is `generated`, otherwise two or more.
+- **Medium**: several signals visible only when zoomed, or provenance is `generated` and signals show only when zoomed.
+- **Weak**: provenance is `generated` but signals are barely visible, or there is a single zoom-only signal.
+- **None**: provenance is not `generated` and there are no signals.
 
-색 보정·필터·반전·잘라 내기는 출처를 바꾸지 않는다. 그런 처방은 "보이는 정도만 줄임"이라고 적는다.
+Recoloring, filtering, flipping, and cropping do not change provenance. Label such fixes "reduces visibility only".
 
-## 5. 리포트 형식
+## 5. Report format
 
-사용자의 언어로, 이 순서대로 쓴다.
+Write in the user's language, in this order:
 
-1. 한 줄 요약: 가장 AI 티가 강한 자산과 그 이유
-2. 자산별 표, **모든 그림 자산마다 한 줄**. 같은 제작 방식의 세트는 묶어도 된다.
+1. One-line summary: the asset with the strongest AI tell, and why
+2. A per-asset table with **one row for every image asset** (a set made the same way may share a row)
 
-   | 자산 | 출처 | AI 티 | 근거(어디·무엇·수치) | 처방 |
+   | Asset | Provenance | AI tell | Evidence (where, what, numbers) | Fix |
    |---|---|---|---|---|
 
-3. 근거 이미지: 게임 크기 화면 1장 이상 + 신호마다 확대 크롭
-4. 고칠 순서: 크기와 "코드로 됨 / 사람 손 필요"를 함께 적는다
-5. 방법·한계: 어떤 대조를 했는지, 못 찾은 후보가 무엇인지, "그림만으로 AI 여부를 확정할 수는 없다"
+3. Evidence images: at least one game-size screen, plus a zoomed crop for each signal
+4. Fix order, with the size of each fix and whether code can do it or it needs an artist
+5. Method and limits: what was compared, which candidates were not found, and that pixels alone cannot prove AI origin
 
-## 처방 원칙
+## Fix principles
 
-- 원인이 생성 그림이면 근본 처방은 **다시 그리기나 오버페인트**(사람 손)다. 이것과 코드로 줄이는 처방을 구분해서 적는다.
-- 누끼 테·번짐·투명 픽셀 색은 코드로 바로 고칠 수 있다.
-- 사용자나 프로젝트가 확정이라고 한 디자인(캐릭터 등)이 있으면 그것을 바꾸자고 하지 않는다. 주변(배경·UI·연출)을 그것에 맞춘다.
+- When the cause is a generated image, the root fix is a **redraw or overpaint** by an artist. Keep it separate from code fixes that only reduce visibility.
+- Cut-out halos, bleed, and transparent-pixel color are quick code fixes.
+- If the user or the project has locked a design (a character, say), do not propose changing it; adjust the surroundings (background, UI, effects) to fit it.

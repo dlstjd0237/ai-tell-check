@@ -1,4 +1,4 @@
-"""AI 티 판정용 측정 도구. 판정은 사람/에이전트가 하고, 이건 근거 숫자만 낸다."""
+"""Measurements for AI-tell checks. A person or agent makes the verdict; this only prints evidence numbers."""
 import argparse, json, re, sys
 from pathlib import Path
 
@@ -27,7 +27,7 @@ def meta(paths):
 
 
 def match(asset, candidates):
-    """asset이 후보 그림(생성 결과물)과 같은 그림인지, 또는 그 일부를 오려 낸 것인지."""
+    """Is the asset the same image as a candidate (generated output), or a crop of one?"""
     rgb, alpha = load(asset)
     g = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY).astype(np.float32)
     mask = (alpha > 128).astype(np.float32)
@@ -59,7 +59,7 @@ def match(asset, candidates):
 
 
 def sym(paths, bottom):
-    """좌우 거울 대칭(반전 상관). 0.85 이상이면 거울 구도 의심."""
+    """Left-right mirror symmetry (flip correlation). 0.85 or more suggests a mirrored layout."""
     for p in paths:
         rgb, alpha = load(p)
         g = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY).astype(np.float32)
@@ -70,7 +70,7 @@ def sym(paths, bottom):
 
 
 def color(paths):
-    """불투명 픽셀의 Lab 중앙값·채도, 보라~핑크 비율, 어두운 비율, 숨은 가장자리 색."""
+    """Median Lab lightness/chroma of opaque pixels, purple-pink share, dark share, and edge color."""
     for p in paths:
         rgb, alpha = load(p)
         op = alpha >= 250
@@ -117,10 +117,10 @@ def selftest():
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__)
     sub = ap.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("meta", help="생성 도구 메타데이터·문자열 흔적").add_argument("files", nargs="+")
-    m = sub.add_parser("match", help="자산이 생성 결과물(의 일부)과 같은 그림인지"); m.add_argument("asset"); m.add_argument("candidates", nargs="+")
-    s = sub.add_parser("sym", help="좌우 거울 대칭"); s.add_argument("files", nargs="+"); s.add_argument("--bottom", type=float, default=0, help="아래쪽 비율만 (예: 0.35)")
-    sub.add_parser("color", help="Lab 채도·명도, 보라핑크·어두운 비율, 가장자리 색").add_argument("files", nargs="+")
+    sub.add_parser("meta", help="generator metadata and string markers").add_argument("files", nargs="+")
+    m = sub.add_parser("match", help="same image as (part of) a generated output?"); m.add_argument("asset"); m.add_argument("candidates", nargs="+")
+    s = sub.add_parser("sym", help="left-right mirror symmetry"); s.add_argument("files", nargs="+"); s.add_argument("--bottom", type=float, default=0, help="only the bottom fraction, e.g. 0.35")
+    sub.add_parser("color", help="Lab lightness/chroma, purple-pink and dark share, edge color").add_argument("files", nargs="+")
     sub.add_parser("selftest")
     a = ap.parse_args()
     {"meta": lambda: meta(a.files), "match": lambda: match(a.asset, a.candidates), "sym": lambda: sym(a.files, a.bottom),
