@@ -27,12 +27,35 @@ python -m venv .venv
 
 O simplemente pide: "Haz ArtQA de esta carpeta. ¿Algo parece hecho con IA?"
 
-El agente:
+Consejo: dile al agente dónde guardas las salidas generadas (por ejemplo, la carpeta output de ComfyUI). La comprobación de origen será mucho más rápida.
 
-1. Comprueba el origen. Lee los metadatos del generador y compara los recursos con las salidas generadas y con versiones anteriores en git, lo que también detecta recursos solo recoloreados o recortados.
-2. Comprueba las señales visibles: perspectiva rota, composiciones en espejo, detalles derretidos, halos de recorte, choques de estilo y más.
-3. Da a cada recurso un solo veredicto: **Fuerte / Medio / Débil / Ninguno**.
-4. Entrega un informe con imágenes de evidencia y un orden de corrección.
+## Cómo funciona
+
+```mermaid
+flowchart LR
+  A["1. Reunir<br/>imágenes fuente + pantalla del juego"] --> B["2. Origen<br/>metadatos · salidas generadas · historial de git"]
+  B --> C["3. Señales visibles<br/>zoom 2–6× y tamaño real"]
+  C --> D["4. Veredicto<br/>Fuerte / Medio / Débil / Ninguno"]
+  D --> E["5. Informe"]
+```
+
+1. **Reunir.** El agente reúne los archivos de imagen fuente, dondequiera que el motor los guarde, y la pantalla real: una captura a la resolución del juego o una composición hecha con las coordenadas del diseño.
+2. **Primero, el origen.** Es la evidencia más fuerte. `aitell.py meta` busca metadatos del generador (prompts de ComfyUI/A1111, marcas de generadores 3D). `aitell.py match` compara cada recurso con las salidas generadas y con versiones anteriores del mismo archivo en git. Así detecta recursos que solo se recolorearon o se recortaron de una imagen generada, aunque se vean limpios.
+3. **Señales visibles.** Cada recurso se revisa con zoom de 2–6×: perspectiva rota, composiciones en espejo, relleno sin sentido, detalles derretidos, efectos falsos, choques de estilo, halos de recorte y sustitutos como iconos emoji. Para cada señal también se anota si se ve al tamaño real del juego.
+4. **Veredicto.** El origen y las señales se combinan en un solo veredicto por recurso:
+
+   | Veredicto | Regla |
+   |---|---|
+   | Fuerte | Se ve una señal al tamaño real del juego (basta una si el recurso es generado; si no, dos o más) |
+   | Medio | Varias señales que solo se ven con zoom, o un recurso generado cuyas señales solo se ven con zoom |
+   | Débil | Un recurso generado con señales casi invisibles, o una sola señal visible solo con zoom |
+   | Ninguno | No es generado y no hay señales |
+
+   Recolorear, filtrar o recortar una imagen generada no cambia su origen.
+
+5. **Informe.** Un resumen de una línea; una tabla con una fila por recurso (origen, veredicto, evidencia, corrección); recortes de evidencia; un orden de corrección que separa los arreglos por código de los redibujos; y los límites del método.
+
+El script solo imprime números; el agente decide. Todas las reglas están en [SKILL.md](skills/ai-tell-check/SKILL.md).
 
 ## Usar solo la herramienta de medición
 
